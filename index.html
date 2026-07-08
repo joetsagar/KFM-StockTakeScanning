@@ -248,7 +248,7 @@
         <div class="totals" id="totals"></div>
         <div class="btn-row" style="margin:0">
           <button class="btn danger" id="clearBtn" hidden>Clear all</button>
-          <button class="btn primary" id="exportBtn" hidden>Export CSV for Salesforce</button>
+          <button class="btn primary" id="exportBtn" hidden>Email to Mobile Stock</button>
         </div>
       </div>
     </section>
@@ -594,6 +594,14 @@
     return v;
   }
 
+  function downloadCsv(csv, fileName){
+    var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
   exportBtn.onclick = function(){
     var tech = techNameEl.value.trim();
     var van = vanCodeEl.value.trim();
@@ -609,12 +617,25 @@
       rows.push([tech, van, reg, checkDt, "Manually Typed", text, "", s.qty, s.first.toISOString(), s.last.toISOString()]);
     });
     var csv = rows.map(function(r){ return r.map(csvField).join(","); }).join("\r\n");
-    var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "tyre-ean-scans-" + new Date().toISOString().slice(0,10) + ".csv";
-    document.body.appendChild(a); a.click(); a.remove();
-    setStatus("CSV downloaded — import it to Salesforce with Data Import Wizard or Data Loader.", "hit");
+    var fileName = "tyre-ean-scans-" + new Date().toISOString().slice(0,10) + ".csv";
+    var subject = "Stock Take (" + van + " · " + reg + " · " + checkDt + ") - " + tech;
+    var shareText = "Send to: mobilestock@kwik-fit.com\n\n" + subject;
+
+    var file;
+    try{ file = new File([csv], fileName, {type:"text/csv"}); }catch(e){ file = null; }
+
+    if(file && navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:subject, text:shareText}).then(function(){
+        setStatus("Share sheet opened — pick Outlook/Mail and send to mobilestock@kwik-fit.com.", "hit");
+      }).catch(function(err){
+        if(err && err.name === "AbortError") return;
+        downloadCsv(csv, fileName);
+        setStatus("Could not open share sheet — CSV downloaded instead. Attach it and email to mobilestock@kwik-fit.com.", "err");
+      });
+    }else{
+      downloadCsv(csv, fileName);
+      setStatus("Sharing isn't supported on this browser — CSV downloaded. Attach it and email to mobilestock@kwik-fit.com.", "hit");
+    }
   };
 
   clearBtn.onclick = function(){
