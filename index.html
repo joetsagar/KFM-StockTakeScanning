@@ -243,13 +243,24 @@
     return (10 - (sum % 10)) % 10 === check;
   }
 
+  var audioCtx = null;
+  function getAudioContext(){
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ audioCtx = null; }
+    }
+    if(audioCtx && audioCtx.state === "suspended"){ audioCtx.resume(); }
+    return audioCtx;
+  }
+
   function beep(){
     try{
-      var ctx = new (window.AudioContext||window.webkitAudioContext)();
-      var o = ctx.createOscillator(), g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = 1200; g.gain.value = 0.12;
-      o.start(); o.stop(ctx.currentTime + 0.12);
+      var ctx = getAudioContext();
+      if(ctx){
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 1200; g.gain.value = 0.12;
+        o.start(); o.stop(ctx.currentTime + 0.12);
+      }
     }catch(e){}
     if(navigator.vibrate) navigator.vibrate(60);
   }
@@ -413,6 +424,7 @@
   // ---- camera ----
   document.getElementById("startBtn").onclick = function(){
     if(running) return;
+    getAudioContext();
     scanner = new Html5Qrcode("reader", {
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
