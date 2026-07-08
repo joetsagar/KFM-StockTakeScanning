@@ -85,6 +85,8 @@
   }
   .manual input:focus-visible{outline:3px solid var(--signal);outline-offset:1px;border-color:var(--tread)}
 
+  .tableScroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tableScroll table{min-width:520px}
   table{width:100%;border-collapse:collapse;font-size:14px;border:2px solid var(--line)}
   th{
     text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:800;
@@ -168,23 +170,27 @@
     <h2>Scanned codes</h2>
     <div id="listWrap">
       <div class="empty" id="emptyMsg">Nothing scanned yet. Each repeat scan of the same EAN increases its quantity.</div>
-      <table id="scanTable" hidden>
-        <thead>
-          <tr><th>EAN code</th><th>Product</th><th>Qty</th><th>Last scanned</th><th></th></tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
+      <div class="tableScroll">
+        <table id="scanTable" hidden>
+          <thead>
+            <tr><th>EAN code</th><th>Product</th><th>Qty</th><th>Last scanned</th><th></th></tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <h2 class="subhead">Manually typed</h2>
     <div id="manualListWrap">
       <div class="empty" id="manualEmptyMsg">No manually typed entries.</div>
-      <table id="manualTable" hidden>
-        <thead>
-          <tr><th>Entry</th><th>Qty</th><th>Last entered</th><th></th></tr>
-        </thead>
-        <tbody id="manualTbody"></tbody>
-      </table>
+      <div class="tableScroll">
+        <table id="manualTable" hidden>
+          <thead>
+            <tr><th>Entry</th><th>Qty</th><th>Last entered</th><th></th></tr>
+          </thead>
+          <tbody id="manualTbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="summary">
