@@ -28,34 +28,37 @@
   }
 
   /* ---- page 1: technician info ---- */
+  .page[hidden]{display:none}
   #page1{
     min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:32px 20px;gap:28px;
+    padding:40px 20px;gap:36px;
   }
-  .brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+  .brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
   .logoMark{
-    width:64px;height:64px;border-radius:18px;
+    width:88px;height:88px;border-radius:24px;
     background:linear-gradient(135deg,var(--accent),var(--accent-2));
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 8px 24px rgba(61,107,255,.35);
+    box-shadow:0 10px 30px rgba(61,107,255,.4);
   }
-  .brand h1{font-size:26px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text)}
-  .brand .tagline{font-size:13px;color:var(--text-soft);max-width:320px}
+  .brand h1{font-size:36px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text)}
+  .brand .tagline{font-size:16px;color:var(--text-soft);max-width:380px}
 
-  .formCard{width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px}
+  .formCard{width:100%;max-width:460px;display:flex;flex-direction:column;gap:18px}
   .formCard .formTitle{
-    font-size:13px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;
+    font-size:15px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;
     color:var(--text-soft);margin-bottom:2px;
   }
-  .field{display:flex;flex-direction:column;gap:6px}
-  .field span{font-size:12px;color:var(--text-soft);font-weight:600}
+  .field{display:flex;flex-direction:column;gap:8px}
+  .field span{font-size:14px;color:var(--text-soft);font-weight:600}
   .field input{
-    width:100%;padding:14px 16px;font-size:15px;border-radius:14px;
+    width:100%;padding:18px 20px;font-size:18px;border-radius:16px;
     background:var(--field);border:1px solid var(--field-border);color:var(--text);
   }
   .field input::placeholder{color:#5b6a80}
   .field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-  .fieldError{font-size:13px;color:var(--danger)}
+  .field.hasError input{border-color:var(--danger)}
+  .fieldError{font-size:14px;color:var(--danger)}
+  #confirmBtn{padding:18px 20px;font-size:16px;margin-top:6px}
 
   main{max-width:860px;margin:0 auto;padding:16px}
 
@@ -153,7 +156,7 @@
 <div id="page1" class="page">
   <div class="brand">
     <div class="logoMark">
-      <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="36" height="36" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="2" y="4" width="3" height="20" rx="1" fill="white"/>
         <rect x="8" y="4" width="2" height="20" rx="1" fill="white"/>
         <rect x="13" y="4" width="4" height="20" rx="1" fill="white"/>
@@ -167,19 +170,21 @@
 
   <div class="formCard">
     <div class="formTitle">Technician Information</div>
-    <label class="field">
+    <label class="field" id="techNameField">
       <span>Technician Name</span>
-      <input id="techName" type="text" autocomplete="off" placeholder="e.g. J. Sagar">
+      <input id="techName" type="text" autocomplete="off">
+      <div class="fieldError" id="techNameError" hidden></div>
     </label>
-    <label class="field">
+    <label class="field" id="vanCodeField">
       <span>Van Code</span>
-      <input id="vanCode" type="text" autocomplete="off" placeholder="e.g. VAN042">
+      <input id="vanCode" type="text" autocomplete="off">
+      <div class="fieldError" id="vanCodeError" hidden></div>
     </label>
-    <label class="field">
+    <label class="field" id="vehicleRegField">
       <span>Vehicle Reg</span>
-      <input id="vehicleReg" type="text" autocomplete="off" placeholder="e.g. AB12 CDE">
+      <input id="vehicleReg" type="text" autocomplete="off">
+      <div class="fieldError" id="vehicleRegError" hidden></div>
     </label>
-    <div class="fieldError" id="page1Error" hidden>Please fill in all three fields before continuing.</div>
     <button class="btn primary full" id="confirmBtn">Confirm</button>
   </div>
 </div>
@@ -269,7 +274,12 @@
   var techNameEl = document.getElementById("techName");
   var vanCodeEl = document.getElementById("vanCode");
   var vehicleRegEl = document.getElementById("vehicleReg");
-  var page1Error = document.getElementById("page1Error");
+  var techNameField = document.getElementById("techNameField");
+  var vanCodeField = document.getElementById("vanCodeField");
+  var vehicleRegField = document.getElementById("vehicleRegField");
+  var techNameError = document.getElementById("techNameError");
+  var vanCodeError = document.getElementById("vanCodeError");
+  var vehicleRegError = document.getElementById("vehicleRegError");
   var confirmBtn = document.getElementById("confirmBtn");
   var editDetailsBtn = document.getElementById("editDetailsBtn");
   var jobSummary = document.getElementById("jobSummary");
@@ -330,15 +340,37 @@
   }
 
   // ---- page 1: technician info ----
+  function showFieldError(fieldEl, errorEl, msg){
+    fieldEl.classList.add("hasError");
+    errorEl.textContent = msg;
+    errorEl.hidden = false;
+  }
+  function clearFieldError(fieldEl, errorEl){
+    fieldEl.classList.remove("hasError");
+    errorEl.hidden = true;
+  }
+  [[techNameEl, techNameField, techNameError], [vanCodeEl, vanCodeField, vanCodeError], [vehicleRegEl, vehicleRegField, vehicleRegError]].forEach(function(t){
+    t[0].addEventListener("input", function(){ clearFieldError(t[1], t[2]); });
+  });
+
   confirmBtn.onclick = function(){
     var tech = techNameEl.value.trim();
     var van = vanCodeEl.value.trim();
     var reg = vehicleRegEl.value.trim();
-    if(!tech || !van || !reg){
-      page1Error.hidden = false;
-      return;
-    }
-    page1Error.hidden = true;
+    var valid = true;
+
+    if(!tech){ showFieldError(techNameField, techNameError, "Technician name is required."); valid = false; }
+    else{ clearFieldError(techNameField, techNameError); }
+
+    if(!van){ showFieldError(vanCodeField, vanCodeError, "Van code is required."); valid = false; }
+    else if(van.indexOf("108") !== 0){ showFieldError(vanCodeField, vanCodeError, "Van code must start with 108."); valid = false; }
+    else{ clearFieldError(vanCodeField, vanCodeError); }
+
+    if(!reg){ showFieldError(vehicleRegField, vehicleRegError, "Vehicle reg is required."); valid = false; }
+    else{ clearFieldError(vehicleRegField, vehicleRegError); }
+
+    if(!valid) return;
+
     checkDateTimeValue = fmt(new Date());
     jobSummary.textContent = tech + " · " + van + " · " + reg + " · " + checkDateTimeValue;
     page1.hidden = true;
