@@ -121,20 +121,6 @@
   }
 
   h2.subhead{margin-top:22px}
-
-  .modalOverlay{
-    position:fixed;inset:0;background:rgba(0,0,0,.55);
-    display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;
-  }
-  .modalBox{background:#fff;border:2px solid var(--line);max-width:360px;width:100%;padding:20px}
-  .modalBox h3{font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:800;color:var(--tread);margin-bottom:10px}
-  .modalText{font-size:13px;color:var(--ink-soft);margin-bottom:14px;word-break:break-word}
-  .modalOptions{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
-  .modalOption{
-    display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
-    border:1px solid var(--line);padding:10px 12px;cursor:pointer;
-  }
-  .modalOption input{width:16px;height:16px}
 </style>
 </head>
 <body>
@@ -195,7 +181,7 @@
       <div class="empty" id="manualEmptyMsg">No manually typed entries.</div>
       <table id="manualTable" hidden>
         <thead>
-          <tr><th>Entry</th><th>Reason</th><th>Qty</th><th>Last entered</th><th></th></tr>
+          <tr><th>Entry</th><th>Qty</th><th>Last entered</th><th></th></tr>
         </thead>
         <tbody id="manualTbody"></tbody>
       </table>
@@ -211,21 +197,6 @@
   </section>
 </main>
 
-<div class="modalOverlay" id="reasonModal" hidden>
-  <div class="modalBox">
-    <h3>Reason for free type</h3>
-    <p class="modalText" id="modalCodeText"></p>
-    <div class="modalOptions">
-      <label class="modalOption"><input type="radio" name="reasonChoice" value="Missing Label"> Missing Label</label>
-      <label class="modalOption"><input type="radio" name="reasonChoice" value="Damaged Label"> Damaged Label</label>
-    </div>
-    <div class="btn-row">
-      <button class="btn ghost" id="modalCancelBtn">Cancel</button>
-      <button class="btn" id="modalConfirmBtn" disabled>Confirm</button>
-    </div>
-  </div>
-</div>
-
 <script>
 (function(){
   "use strict";
@@ -236,7 +207,6 @@
   var scanner = null;
   var running = false;
   var lastCode = null, lastAt = 0;
-  var pendingReasonCallback = null;
 
   var statusEl = document.getElementById("status");
   var tbody = document.getElementById("tbody");
@@ -252,10 +222,6 @@
   var vanCodeEl = document.getElementById("vanCode");
   var vehicleRegEl = document.getElementById("vehicleReg");
   var checkDateTimeEl = document.getElementById("checkDateTime");
-  var reasonModal = document.getElementById("reasonModal");
-  var modalCodeText = document.getElementById("modalCodeText");
-  var modalConfirmBtn = document.getElementById("modalConfirmBtn");
-  var modalCancelBtn = document.getElementById("modalCancelBtn");
   checkDateTimeEl.textContent = fmt(new Date());
 
   function setStatus(msg, cls){
@@ -306,18 +272,17 @@
     render(code);
   }
 
-  function recordManual(text, reason){
+  function recordManual(text){
     var now = new Date();
     if(manualScans[text]){
       manualScans[text].qty += 1;
       manualScans[text].last = now;
-      manualScans[text].reason = reason;
     }else{
-      manualScans[text] = {qty:1, first:now, last:now, reason:reason};
+      manualScans[text] = {qty:1, first:now, last:now};
       manualOrder.push(text);
     }
     beep();
-    setStatus("Added manual entry \"" + text + "\" (" + reason + ", qty " + manualScans[text].qty + ")", "hit");
+    setStatus("Added manual entry \"" + text + "\" (qty " + manualScans[text].qty + ")", "hit");
     renderManual(text);
   }
 
@@ -406,9 +371,6 @@
       var tdText = document.createElement("td");
       tdText.textContent = text;
 
-      var tdReason = document.createElement("td");
-      tdReason.textContent = s.reason;
-
       var tdQ = document.createElement("td");
       var wrap = document.createElement("div"); wrap.className = "qty";
       var minus = document.createElement("button"); minus.textContent = "−";
@@ -435,37 +397,12 @@
       };
       tdR.appendChild(rm);
 
-      tr.appendChild(tdText); tr.appendChild(tdReason); tr.appendChild(tdQ); tr.appendChild(tdT); tr.appendChild(tdR);
+      tr.appendChild(tdText); tr.appendChild(tdQ); tr.appendChild(tdT); tr.appendChild(tdR);
       manualTbody.appendChild(tr);
     });
 
     renderSummary();
   }
-
-  // ---- reason modal ----
-  function openReasonModal(text, callback){
-    pendingReasonCallback = callback;
-    modalCodeText.textContent = "Entry: \"" + text + "\"";
-    reasonModal.querySelectorAll('input[name="reasonChoice"]').forEach(function(r){ r.checked = false; });
-    modalConfirmBtn.disabled = true;
-    reasonModal.hidden = false;
-  }
-  function closeReasonModal(){
-    reasonModal.hidden = true;
-    pendingReasonCallback = null;
-  }
-  reasonModal.querySelectorAll('input[name="reasonChoice"]').forEach(function(r){
-    r.addEventListener("change", function(){ modalConfirmBtn.disabled = false; });
-  });
-  modalConfirmBtn.onclick = function(){
-    var selected = reasonModal.querySelector('input[name="reasonChoice"]:checked');
-    if(!selected) return;
-    var reason = selected.value;
-    var cb = pendingReasonCallback;
-    closeReasonModal();
-    if(cb) cb(reason);
-  };
-  modalCancelBtn.onclick = function(){ closeReasonModal(); };
 
   // ---- camera ----
   document.getElementById("startBtn").onclick = function(){
@@ -516,13 +453,10 @@
     var code = raw.replace(/\s+/g,"");
     if(validEan(code)){
       record(code, "manual");
-      input.value = ""; input.focus();
     }else{
-      openReasonModal(raw, function(reason){
-        recordManual(raw, reason);
-        input.value = ""; input.focus();
-      });
+      recordManual(raw);
     }
+    input.value = ""; input.focus();
   }
   document.getElementById("addManual").onclick = addManual;
   document.getElementById("manualEan").addEventListener("keydown", function(e){
@@ -541,14 +475,14 @@
     var van = vanCodeEl.value.trim();
     var reg = vehicleRegEl.value.trim();
     var checkDt = checkDateTimeEl.textContent;
-    var rows = [["Technician_Name","Van_Code","Vehicle_Reg","Check_DateTime","Entry_Type","Code","Product_Name","Reason","Quantity","First_Scanned","Last_Scanned"]];
+    var rows = [["Technician_Name","Van_Code","Vehicle_Reg","Check_DateTime","Entry_Type","Code","Product_Name","Quantity","First_Scanned","Last_Scanned"]];
     order.forEach(function(ean){
       var s = scans[ean];
-      rows.push([tech, van, reg, checkDt, "Scanned Code", ean, s.product || "", "", s.qty, s.first.toISOString(), s.last.toISOString()]);
+      rows.push([tech, van, reg, checkDt, "Scanned Code", ean, s.product || "", s.qty, s.first.toISOString(), s.last.toISOString()]);
     });
     manualOrder.forEach(function(text){
       var s = manualScans[text];
-      rows.push([tech, van, reg, checkDt, "Manually Typed", text, "", s.reason, s.qty, s.first.toISOString(), s.last.toISOString()]);
+      rows.push([tech, van, reg, checkDt, "Manually Typed", text, "", s.qty, s.first.toISOString(), s.last.toISOString()]);
     });
     var csv = rows.map(function(r){ return r.map(csvField).join(","); }).join("\r\n");
     var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
@@ -569,3 +503,5 @@
 </script>
 </body>
 </html>
+
+
