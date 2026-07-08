@@ -594,6 +594,10 @@
     return v;
   }
 
+  function sanitizeFilenamePart(v){
+    return String(v).trim().replace(/[\\/:*?"<>|]/g,"-").replace(/\s+/g,"_");
+  }
+
   exportBtn.onclick = function(){
     var tech = techNameEl.value.trim();
     var van = vanCodeEl.value.trim();
@@ -612,7 +616,8 @@
     var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "tyre-ean-scans-" + new Date().toISOString().slice(0,10) + ".csv";
+    var fileName = [tech, van, reg, checkDt].map(sanitizeFilenamePart).join("_") + ".csv";
+    a.download = fileName;
     document.body.appendChild(a); a.click(); a.remove();
     setStatus("CSV downloaded — attach it and email to mobilestock@kwik-fit.com.", "hit");
   };
