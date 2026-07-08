@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Tyre EAN Scanner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="ean-lookup.js"></script>
+<style>
+  :root{
+    --ink:#111820;
+    --ink-soft:#5a6b80;
+    --paper:#ffffff;
+    --card:#ffffff;
+    --line:#000000;
+    --tread:#0054a6;      /* Kwik Fit blue */
+    --signal:#f5a623;     /* Kwik Fit orange, used sparingly */
+    --ok:#1e8e5a;
+    --danger:#c0392b;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--paper);color:var(--ink);min-height:100vh;
+  }
+  header{
+    background:#fff;color:var(--ink);
+    display:flex;flex-direction:column;align-items:stretch;gap:0;
+    border:2px solid var(--line);
+    max-width:860px;margin:16px auto 0;
+  }
+  header .titleBox{padding:16px 20px;text-align:center}
+  header h1{font-size:24px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--tread)}
+  header p{font-size:12px;color:var(--ink-soft);margin-top:4px}
+
+  main{max-width:860px;margin:0 auto;padding:16px}
+
+  .panel{background:var(--card);border:2px solid var(--line);border-radius:0;padding:16px;margin-bottom:16px}
+  .panel h2{
+    font-size:14px;text-transform:uppercase;letter-spacing:.04em;font-weight:800;
+    color:var(--tread);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--tread);
+  }
+
+  #reader{width:100%;max-width:480px;margin:0 auto;border-radius:8px;overflow:hidden;background:#0e141b}
+  #reader video{border-radius:8px}
+
+  .btn{
+    appearance:none;border:2px solid var(--line);border-radius:0;padding:12px 18px;
+    font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;
+    background:var(--tread);color:#fff;
+  }
+  .btn:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+  .btn.amber{background:var(--signal);color:#1b1400}
+  .btn.ghost{background:#fff;color:var(--tread)}
+  .btn.danger{background:#fff;color:var(--danger);border-color:var(--danger)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+
+  .status{
+    text-align:center;margin-top:12px;font-size:14px;color:var(--ink-soft);
+    min-height:22px;
+  }
+  .status.hit{color:var(--ok);font-weight:600}
+  .status.err{color:var(--danger)}
+
+  .infoTable{width:100%;border-collapse:collapse}
+  .infoTable th{
+    width:42%;background:var(--tread);color:var(--signal);text-align:left;
+    text-transform:uppercase;font-weight:800;font-size:13px;letter-spacing:.03em;
+    padding:12px 14px;border:1px solid var(--line);
+  }
+  .infoTable td{background:#fff;padding:6px 12px;border:1px solid var(--line)}
+  .infoTable input{
+    width:100%;border:0;background:transparent;font-size:15px;padding:8px 4px;color:var(--ink);
+  }
+  .infoTable input:focus-visible{outline:2px solid var(--signal)}
+  .infoTable td.dtValue{font-weight:800;font-family:var(--mono);color:var(--tread);padding:10px 12px}
+
+  .manual{display:flex;gap:8px;flex-wrap:wrap}
+  .manual input{
+    flex:1;min-width:200px;padding:11px 12px;font-size:16px;
+    font-family:var(--mono);letter-spacing:.06em;
+    border:2px solid var(--line);border-radius:0;background:#fff;color:var(--ink);
+  }
+  .manual input:focus-visible{outline:3px solid var(--signal);outline-offset:1px;border-color:var(--tread)}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;border:2px solid var(--line)}
+  th{
+    text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:800;
+    color:#fff;background:var(--tread);padding:10px 10px;border:1px solid var(--line);
+  }
+  td{padding:10px;border:1px solid var(--line);vertical-align:middle}
+  td.ean{font-family:var(--mono);font-size:15px;letter-spacing:.05em}
+  td.product{font-size:13px}
+  td.product.unknown{color:var(--ink-soft);font-style:italic}
+  .qty{display:inline-flex;align-items:center;gap:8px}
+  .qty button{
+    width:30px;height:30px;border-radius:6px;border:1px solid var(--line);
+    background:#fff;font-size:16px;font-weight:700;cursor:pointer;color:var(--ink);
+  }
+  .qty button:focus-visible{outline:3px solid var(--signal)}
+  .qty span{min-width:26px;text-align:center;font-weight:700;font-family:var(--mono)}
+  .rm{background:none;border:0;color:var(--danger);cursor:pointer;font-size:13px;text-decoration:underline}
+  .time{color:var(--ink-soft);font-size:12px;white-space:nowrap}
+
+  .empty{
+    text-align:center;color:var(--ink-soft);padding:26px 10px;font-size:14px;
+    border:1px dashed var(--line);border-radius:8px;
+  }
+  .summary{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-top:12px;flex-wrap:wrap;gap:10px;
+  }
+  .summary .totals{font-size:13px;color:var(--ink-soft)}
+  .summary .totals b{color:var(--ink);font-family:var(--mono)}
+
+  @media (prefers-reduced-motion:no-preference){
+    @keyframes flash{0%{background:#fff8e0}100%{background:transparent}}
+    tr.new td{animation:flash 1.2s ease-out}
+  }
+
+  h2.subhead{margin-top:22px}
+
+  .modalOverlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);
+    display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;
+  }
+  .modalBox{background:#fff;border:2px solid var(--line);max-width:360px;width:100%;padding:20px}
+  .modalBox h3{font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:800;color:var(--tread);margin-bottom:10px}
+  .modalText{font-size:13px;color:var(--ink-soft);margin-bottom:14px;word-break:break-word}
+  .modalOptions{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+  .modalOption{
+    display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
+    border:1px solid var(--line);padding:10px 12px;cursor:pointer;
+  }
+  .modalOption input{width:16px;height:16px}
+</style>
+</head>
+<body>
+<header>
+  <div class="titleBox">
+    <h1>Stock Take</h1>
+    <p>Scan barcodes &rarr; export CSV &rarr; import to Salesforce</p>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Job details</h2>
+    <table class="infoTable">
+      <tbody>
+        <tr><th>Technician Name</th><td><input id="techName" type="text" autocomplete="off" aria-label="Technician name"></td></tr>
+        <tr><th>Van Code</th><td><input id="vanCode" type="text" autocomplete="off" aria-label="Van code"></td></tr>
+        <tr><th>Vehicle Reg</th><td><input id="vehicleReg" type="text" autocomplete="off" aria-label="Vehicle registration"></td></tr>
+        <tr><th>Date / Time</th><td class="dtValue" id="checkDateTime"></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Camera scan</h2>
+    <div id="reader" aria-label="Camera preview"></div>
+    <div class="btn-row">
+      <button class="btn amber" id="startBtn">Start camera</button>
+      <button class="btn ghost" id="stopBtn" disabled>Stop camera</button>
+    </div>
+    <div class="status" id="status" role="status">Camera is off. Start it to begin scanning.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Manual entry</h2>
+    <div class="manual">
+      <input id="manualEan" autocomplete="off"
+             placeholder="Type or paste an EAN, or free-type if there's no label"
+             aria-label="EAN code or free-type manual entry">
+      <button class="btn" id="addManual">Add</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Scanned codes</h2>
+    <div id="listWrap">
+      <div class="empty" id="emptyMsg">Nothing scanned yet. Each repeat scan of the same EAN increases its quantity.</div>
+      <table id="scanTable" hidden>
+        <thead>
+          <tr><th>EAN code</th><th>Product</th><th>Qty</th><th>Last scanned</th><th></th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <h2 class="subhead">Manually typed</h2>
+    <div id="manualListWrap">
+      <div class="empty" id="manualEmptyMsg">No manually typed entries.</div>
+      <table id="manualTable" hidden>
+        <thead>
+          <tr><th>Entry</th><th>Reason</th><th>Qty</th><th>Last entered</th><th></th></tr>
+        </thead>
+        <tbody id="manualTbody"></tbody>
+      </table>
+    </div>
+
+    <div class="summary">
+      <div class="totals" id="totals"></div>
+      <div class="btn-row" style="margin:0">
+        <button class="btn danger" id="clearBtn" hidden>Clear all</button>
+        <button class="btn" id="exportBtn" hidden>Export CSV for Salesforce</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="modalOverlay" id="reasonModal" hidden>
+  <div class="modalBox">
+    <h3>Reason for free type</h3>
+    <p class="modalText" id="modalCodeText"></p>
+    <div class="modalOptions">
+      <label class="modalOption"><input type="radio" name="reasonChoice" value="Missing Label"> Missing Label</label>
+      <label class="modalOption"><input type="radio" name="reasonChoice" value="Damaged Label"> Damaged Label</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn ghost" id="modalCancelBtn">Cancel</button>
+      <button class="btn" id="modalConfirmBtn" disabled>Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var scans = {};            // ean -> {qty, first, last, product}
+  var order = [];            // insertion order of EANs
+  var manualScans = {};      // free-typed text -> {qty, first, last, reason}
+  var manualOrder = [];      // insertion order of manual entries
+  var scanner = null;
+  var running = false;
+  var lastCode = null, lastAt = 0;
+  var pendingReasonCallback = null;
+
+  var statusEl = document.getElementById("status");
+  var tbody = document.getElementById("tbody");
+  var table = document.getElementById("scanTable");
+  var emptyMsg = document.getElementById("emptyMsg");
+  var manualTbody = document.getElementById("manualTbody");
+  var manualTable = document.getElementById("manualTable");
+  var manualEmptyMsg = document.getElementById("manualEmptyMsg");
+  var exportBtn = document.getElementById("exportBtn");
+  var clearBtn = document.getElementById("clearBtn");
+  var totals = document.getElementById("totals");
+  var techNameEl = document.getElementById("techName");
+  var vanCodeEl = document.getElementById("vanCode");
+  var vehicleRegEl = document.getElementById("vehicleReg");
+  var checkDateTimeEl = document.getElementById("checkDateTime");
+  var reasonModal = document.getElementById("reasonModal");
+  var modalCodeText = document.getElementById("modalCodeText");
+  var modalConfirmBtn = document.getElementById("modalConfirmBtn");
+  var modalCancelBtn = document.getElementById("modalCancelBtn");
+  checkDateTimeEl.textContent = fmt(new Date());
+
+  function setStatus(msg, cls){
+    statusEl.textContent = msg;
+    statusEl.className = "status" + (cls ? " " + cls : "");
+  }
+
+  function validEan(code){
+    if(!/^\d{8}$|^\d{13}$/.test(code)) return false;
+    var digits = code.split("").map(Number);
+    var check = digits.pop(), sum = 0;
+    digits.reverse().forEach(function(d,i){ sum += d * (i % 2 === 0 ? 3 : 1); });
+    return (10 - (sum % 10)) % 10 === check;
+  }
+
+  function beep(){
+    try{
+      var ctx = new (window.AudioContext||window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 1200; g.gain.value = 0.12;
+      o.start(); o.stop(ctx.currentTime + 0.12);
+    }catch(e){}
+    if(navigator.vibrate) navigator.vibrate(60);
+  }
+
+  function fmt(d){
+    return d.toLocaleDateString("en-GB") + " " + d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  }
+
+  function lookupProduct(code){
+    var lookup = (typeof EAN_LOOKUP !== "undefined") ? EAN_LOOKUP : null;
+    return (lookup && lookup[code]) ? lookup[code] : null;
+  }
+
+  function record(code, source){
+    var now = new Date();
+    var product = lookupProduct(code);
+    if(scans[code]){
+      scans[code].qty += 1;
+      scans[code].last = now;
+    }else{
+      scans[code] = {qty:1, first:now, last:now, product:product};
+      order.push(code);
+    }
+    beep();
+    setStatus("Captured " + code + (product ? " — " + product : "") + " (qty " + scans[code].qty + ")" + (source==="manual"?" — added manually":""), "hit");
+    render(code);
+  }
+
+  function recordManual(text, reason){
+    var now = new Date();
+    if(manualScans[text]){
+      manualScans[text].qty += 1;
+      manualScans[text].last = now;
+      manualScans[text].reason = reason;
+    }else{
+      manualScans[text] = {qty:1, first:now, last:now, reason:reason};
+      manualOrder.push(text);
+    }
+    beep();
+    setStatus("Added manual entry \"" + text + "\" (" + reason + ", qty " + manualScans[text].qty + ")", "hit");
+    renderManual(text);
+  }
+
+  function renderSummary(){
+    var totalEntries = order.length + manualOrder.length;
+    if(totalEntries === 0){
+      exportBtn.hidden = true; clearBtn.hidden = true;
+      totals.textContent = "";
+      return;
+    }
+    exportBtn.hidden = false; clearBtn.hidden = false;
+    var units = order.reduce(function(a,e){return a + scans[e].qty;}, 0);
+    var manualUnits = manualOrder.reduce(function(a,e){return a + manualScans[e].qty;}, 0);
+    totals.innerHTML = "<b>" + order.length + "</b> unique EANs &middot; <b>" + units + "</b> units" +
+      (manualOrder.length ? " &middot; <b>" + manualOrder.length + "</b> manual entries &middot; <b>" + manualUnits + "</b> manual units" : "");
+  }
+
+  function render(newCode){
+    if(order.length === 0){
+      table.hidden = true; emptyMsg.hidden = false;
+      renderSummary();
+      return;
+    }
+    table.hidden = false; emptyMsg.hidden = true;
+
+    tbody.innerHTML = "";
+    order.forEach(function(ean){
+      var s = scans[ean];
+      var tr = document.createElement("tr");
+      if(ean === newCode) tr.className = "new";
+
+      var tdE = document.createElement("td");
+      tdE.className = "ean"; tdE.textContent = ean;
+
+      var tdP = document.createElement("td");
+      tdP.className = "product" + (s.product ? "" : " unknown");
+      tdP.textContent = s.product || "Unknown — not in list";
+
+      var tdQ = document.createElement("td");
+      var wrap = document.createElement("div"); wrap.className = "qty";
+      var minus = document.createElement("button"); minus.textContent = "\u2212";
+      minus.setAttribute("aria-label","Decrease quantity for " + ean);
+      minus.onclick = function(){
+        s.qty -= 1;
+        if(s.qty <= 0){ delete scans[ean]; order = order.filter(function(x){return x!==ean;}); }
+        render();
+      };
+      var qty = document.createElement("span"); qty.textContent = s.qty;
+      var plus = document.createElement("button"); plus.textContent = "+";
+      plus.setAttribute("aria-label","Increase quantity for " + ean);
+      plus.onclick = function(){ s.qty += 1; s.last = new Date(); render(); };
+      wrap.appendChild(minus); wrap.appendChild(qty); wrap.appendChild(plus);
+      tdQ.appendChild(wrap);
+
+      var tdT = document.createElement("td");
+      tdT.className = "time"; tdT.textContent = fmt(s.last);
+
+      var tdR = document.createElement("td");
+      var rm = document.createElement("button"); rm.className = "rm"; rm.textContent = "Remove";
+      rm.onclick = function(){
+        delete scans[ean]; order = order.filter(function(x){return x!==ean;}); render();
+      };
+      tdR.appendChild(rm);
+
+      tr.appendChild(tdE); tr.appendChild(tdP); tr.appendChild(tdQ); tr.appendChild(tdT); tr.appendChild(tdR);
+      tbody.appendChild(tr);
+    });
+
+    renderSummary();
+  }
+
+  function renderManual(newText){
+    if(manualOrder.length === 0){
+      manualTable.hidden = true; manualEmptyMsg.hidden = false;
+      renderSummary();
+      return;
+    }
+    manualTable.hidden = false; manualEmptyMsg.hidden = true;
+
+    manualTbody.innerHTML = "";
+    manualOrder.forEach(function(text){
+      var s = manualScans[text];
+      var tr = document.createElement("tr");
+      if(text === newText) tr.className = "new";
+
+      var tdText = document.createElement("td");
+      tdText.textContent = text;
+
+      var tdReason = document.createElement("td");
+      tdReason.textContent = s.reason;
+
+      var tdQ = document.createElement("td");
+      var wrap = document.createElement("div"); wrap.className = "qty";
+      var minus = document.createElement("button"); minus.textContent = "−";
+      minus.setAttribute("aria-label","Decrease quantity for " + text);
+      minus.onclick = function(){
+        s.qty -= 1;
+        if(s.qty <= 0){ delete manualScans[text]; manualOrder = manualOrder.filter(function(x){return x!==text;}); }
+        renderManual();
+      };
+      var qty = document.createElement("span"); qty.textContent = s.qty;
+      var plus = document.createElement("button"); plus.textContent = "+";
+      plus.setAttribute("aria-label","Increase quantity for " + text);
+      plus.onclick = function(){ s.qty += 1; s.last = new Date(); renderManual(); };
+      wrap.appendChild(minus); wrap.appendChild(qty); wrap.appendChild(plus);
+      tdQ.appendChild(wrap);
+
+      var tdT = document.createElement("td");
+      tdT.className = "time"; tdT.textContent = fmt(s.last);
+
+      var tdR = document.createElement("td");
+      var rm = document.createElement("button"); rm.className = "rm"; rm.textContent = "Remove";
+      rm.onclick = function(){
+        delete manualScans[text]; manualOrder = manualOrder.filter(function(x){return x!==text;}); renderManual();
+      };
+      tdR.appendChild(rm);
+
+      tr.appendChild(tdText); tr.appendChild(tdReason); tr.appendChild(tdQ); tr.appendChild(tdT); tr.appendChild(tdR);
+      manualTbody.appendChild(tr);
+    });
+
+    renderSummary();
+  }
+
+  // ---- reason modal ----
+  function openReasonModal(text, callback){
+    pendingReasonCallback = callback;
+    modalCodeText.textContent = "Entry: \"" + text + "\"";
+    reasonModal.querySelectorAll('input[name="reasonChoice"]').forEach(function(r){ r.checked = false; });
+    modalConfirmBtn.disabled = true;
+    reasonModal.hidden = false;
+  }
+  function closeReasonModal(){
+    reasonModal.hidden = true;
+    pendingReasonCallback = null;
+  }
+  reasonModal.querySelectorAll('input[name="reasonChoice"]').forEach(function(r){
+    r.addEventListener("change", function(){ modalConfirmBtn.disabled = false; });
+  });
+  modalConfirmBtn.onclick = function(){
+    var selected = reasonModal.querySelector('input[name="reasonChoice"]:checked');
+    if(!selected) return;
+    var reason = selected.value;
+    var cb = pendingReasonCallback;
+    closeReasonModal();
+    if(cb) cb(reason);
+  };
+  modalCancelBtn.onclick = function(){ closeReasonModal(); };
+
+  // ---- camera ----
+  document.getElementById("startBtn").onclick = function(){
+    if(running) return;
+    scanner = new Html5Qrcode("reader", {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A
+      ]
+    });
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 280, height: 140 } },
+      function(text){
+        var now = Date.now();
+        if(text === lastCode && now - lastAt < 2500) return;  // debounce duplicate frames
+        lastCode = text; lastAt = now;
+        if(!validEan(text)){ setStatus("Read " + text + " but checksum failed — try again.", "err"); return; }
+        record(text, "camera");
+      },
+      function(){ /* per-frame miss, ignore */ }
+    ).then(function(){
+      running = true;
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("stopBtn").disabled = false;
+      setStatus("Camera running. Hold a barcode inside the box.");
+    }).catch(function(err){
+      setStatus("Could not start camera: " + err + ". Check permissions, or use manual entry.", "err");
+    });
+  };
+
+  document.getElementById("stopBtn").onclick = function(){
+    if(!scanner || !running) return;
+    scanner.stop().then(function(){
+      scanner.clear(); running = false;
+      document.getElementById("startBtn").disabled = false;
+      document.getElementById("stopBtn").disabled = true;
+      setStatus("Camera is off.");
+    });
+  };
+
+  // ---- manual ----
+  function addManual(){
+    var input = document.getElementById("manualEan");
+    var raw = input.value.trim();
+    if(!raw) return;
+    var code = raw.replace(/\s+/g,"");
+    if(validEan(code)){
+      record(code, "manual");
+      input.value = ""; input.focus();
+    }else{
+      openReasonModal(raw, function(reason){
+        recordManual(raw, reason);
+        input.value = ""; input.focus();
+      });
+    }
+  }
+  document.getElementById("addManual").onclick = addManual;
+  document.getElementById("manualEan").addEventListener("keydown", function(e){
+    if(e.key === "Enter") addManual();
+  });
+
+  // ---- export ----
+  function csvField(v){
+    v = String(v);
+    if(/[",\r\n]/.test(v)) return '"' + v.replace(/"/g,'""') + '"';
+    return v;
+  }
+
+  exportBtn.onclick = function(){
+    var tech = techNameEl.value.trim();
+    var van = vanCodeEl.value.trim();
+    var reg = vehicleRegEl.value.trim();
+    var checkDt = checkDateTimeEl.textContent;
+    var rows = [["Technician_Name","Van_Code","Vehicle_Reg","Check_DateTime","Entry_Type","Code","Product_Name","Reason","Quantity","First_Scanned","Last_Scanned"]];
+    order.forEach(function(ean){
+      var s = scans[ean];
+      rows.push([tech, van, reg, checkDt, "Scanned Code", ean, s.product || "", "", s.qty, s.first.toISOString(), s.last.toISOString()]);
+    });
+    manualOrder.forEach(function(text){
+      var s = manualScans[text];
+      rows.push([tech, van, reg, checkDt, "Manually Typed", text, "", s.reason, s.qty, s.first.toISOString(), s.last.toISOString()]);
+    });
+    var csv = rows.map(function(r){ return r.map(csvField).join(","); }).join("\r\n");
+    var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tyre-ean-scans-" + new Date().toISOString().slice(0,10) + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setStatus("CSV downloaded — import it to Salesforce with Data Import Wizard or Data Loader.", "hit");
+  };
+
+  clearBtn.onclick = function(){
+    if(confirm("Clear all scanned and manually typed entries?")){
+      scans = {}; order = []; manualScans = {}; manualOrder = [];
+      render(); renderManual(); setStatus("List cleared.");
+    }
+  };
+})();
+</script>
+</body>
+</html>
