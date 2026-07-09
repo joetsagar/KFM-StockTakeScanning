@@ -32,7 +32,7 @@
   .page[hidden]{display:none}
   #page1{
     min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:40px 20px;gap:36px;
+    padding:40px 20px;gap:22px;
   }
   .brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
   .logoCard{
@@ -261,6 +261,7 @@
   var scanner = null;
   var running = false;
   var lastCode = null, lastAt = 0;
+  var scanPauseUntil = 0;
   var checkDateTimeValue = "";
 
   var page1 = document.getElementById("page1");
@@ -552,10 +553,12 @@
       { fps: 10, qrbox: { width: 280, height: 140 } },
       function(text){
         var now = Date.now();
+        if(now < scanPauseUntil) return;  // brief pause after a successful capture
         if(text === lastCode && now - lastAt < 2500) return;  // debounce duplicate frames
         lastCode = text; lastAt = now;
         if(!validEan(text)){ setStatus("Read " + text + " but checksum failed — try again.", "err"); return; }
         record(text, "camera");
+        scanPauseUntil = now + 2000;
       },
       function(){ /* per-frame miss, ignore */ }
     ).then(function(){
