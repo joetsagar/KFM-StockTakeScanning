@@ -81,8 +81,17 @@
   }
   h2.subhead{margin-top:22px}
 
-  #reader{width:100%;max-width:480px;margin:0 auto;border-radius:14px;overflow:hidden;background:#000}
+  .readerWrap{position:relative;width:100%;max-width:480px;margin:0 auto}
+  #reader{width:100%;border-radius:14px;overflow:hidden;background:#000}
   #reader video{border-radius:14px}
+  .scanOverlay{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    background:rgba(52,211,153,.94);border-radius:14px;color:#06281c;
+    opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  .scanOverlay.show{opacity:1}
+  .scanOverlayCheck{font-size:48px;font-weight:800;line-height:1}
+  .scanOverlayText{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;text-align:center;padding:0 16px}
 
   .btn{
     appearance:none;border:0;border-radius:14px;padding:13px 18px;
@@ -195,7 +204,13 @@
   <main>
     <section class="panel">
       <h2>Camera scan</h2>
-      <div id="reader" aria-label="Camera preview"></div>
+      <div class="readerWrap">
+        <div id="reader" aria-label="Camera preview"></div>
+        <div class="scanOverlay" id="scanOverlay" aria-hidden="true">
+          <div class="scanOverlayCheck">&#10003;</div>
+          <div class="scanOverlayText" id="scanOverlayText"></div>
+        </div>
+      </div>
       <div class="btn-row">
         <button class="btn primary" id="startBtn">Start camera</button>
         <button class="btn ghost" id="stopBtn" disabled>Stop camera</button>
@@ -278,6 +293,17 @@
   var confirmBtn = document.getElementById("confirmBtn");
   var editDetailsBtn = document.getElementById("editDetailsBtn");
   var jobSummary = document.getElementById("jobSummary");
+
+  var scanOverlay = document.getElementById("scanOverlay");
+  var scanOverlayText = document.getElementById("scanOverlayText");
+  var scanOverlayTimer = null;
+
+  function showScanOverlay(label){
+    scanOverlayText.textContent = label;
+    scanOverlay.classList.add("show");
+    clearTimeout(scanOverlayTimer);
+    scanOverlayTimer = setTimeout(function(){ scanOverlay.classList.remove("show"); }, 1000);
+  }
 
   var statusEl = document.getElementById("status");
   var tbody = document.getElementById("tbody");
@@ -558,6 +584,7 @@
         lastCode = text; lastAt = now;
         if(!validEan(text)){ setStatus("Read " + text + " but checksum failed — try again.", "err"); return; }
         record(text, "camera");
+        showScanOverlay(scans[text].product || text);
         scanPauseUntil = now + 2000;
       },
       function(){ /* per-frame miss, ignore */ }
