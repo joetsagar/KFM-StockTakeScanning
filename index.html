@@ -6,6 +6,7 @@
 <title>Stock Take</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="ean-lookup.js"></script>
+<script src="tech-lookup.js"></script>
 <style>
   :root{
     --bg:#0d1420;
@@ -164,7 +165,8 @@
   <div class="formCard">
     <label class="field" id="techNameField">
       <span>Technician Name</span>
-      <input id="techName" type="text" autocomplete="off">
+      <input id="techName" type="text" autocomplete="off" list="techNameList">
+      <datalist id="techNameList"></datalist>
       <div class="fieldError" id="techNameError" hidden></div>
     </label>
     <label class="field" id="vanCodeField">
@@ -330,6 +332,17 @@
     var lookup = (typeof EAN_LOOKUP !== "undefined") ? EAN_LOOKUP : null;
     return (lookup && lookup[code]) ? lookup[code] : null;
   }
+
+  // ---- technician name autocomplete ----
+  (function populateTechNames(){
+    var names = (typeof TECH_NAMES !== "undefined") ? TECH_NAMES : [];
+    var list = document.getElementById("techNameList");
+    names.forEach(function(n){
+      var opt = document.createElement("option");
+      opt.value = n;
+      list.appendChild(opt);
+    });
+  })();
 
   // ---- page 1: technician info ----
   function showFieldError(fieldEl, errorEl, msg){
