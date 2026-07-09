@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="ean-lookup.js"></script>
 <script src="tech-lookup.js"></script>
+<script src="van-lookup.js"></script>
 <style>
   :root{
     --bg:#0d1420;
@@ -30,6 +31,8 @@
 
   /* ---- page 1: technician info ---- */
   .page[hidden]{display:none}
+  #page2{ transition:transform .45s cubic-bezier(.22,.9,.32,1), opacity .45s cubic-bezier(.22,.9,.32,1); }
+  #page2.pageEnterFrom{ transform:translateY(-28px); opacity:0; }
   #page1{
     min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
     padding:40px 20px;gap:22px;
@@ -55,9 +58,23 @@
     width:100%;padding:18px 20px;font-size:18px;border-radius:16px;
     background:var(--field);border:1px solid var(--field-border);color:var(--text);
   }
+  #techName,#vehicleReg{text-align:center}
   .field input::placeholder{color:#5b6a80}
   .field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
   .field.hasError input{border-color:var(--danger)}
+
+  .vanCodeGroup{display:flex;width:100%;border-radius:16px;overflow:hidden;border:1px solid var(--field-border)}
+  .vanCodePrefix{
+    width:50%;padding:18px 20px;font-size:18px;font-weight:700;font-family:var(--mono);
+    background:var(--panel-2);color:var(--text-soft);display:flex;align-items:center;justify-content:center;
+    border-right:1px solid var(--field-border);
+  }
+  .vanCodeGroup input{
+    width:50%;padding:18px 20px;font-size:18px;font-family:var(--mono);letter-spacing:.08em;text-align:center;
+    background:var(--field);border:0;color:var(--text);border-radius:0;
+  }
+  .vanCodeGroup input:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .field.hasError .vanCodeGroup{border-color:var(--danger)}
   .fieldError{font-size:14px;color:var(--danger)}
   #confirmBtn{padding:18px 20px;font-size:16px;margin-top:6px}
 
@@ -180,7 +197,10 @@
     </label>
     <label class="field" id="vanCodeField">
       <span>Van Code</span>
-      <input id="vanCode" type="text" autocomplete="off">
+      <div class="vanCodeGroup">
+        <div class="vanCodePrefix">108</div>
+        <input id="vanCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="000">
+      </div>
       <div class="fieldError" id="vanCodeError" hidden></div>
     </label>
     <label class="field" id="vehicleRegField">
@@ -360,6 +380,25 @@
     return (lookup && lookup[code]) ? lookup[code] : null;
   }
 
+  // ---- van code <-> vehicle reg lookup ----
+  function normalizeReg(v){
+    return String(v || "").replace(/\s+/g,"").toUpperCase();
+  }
+  function lookupRegForVan(digits){
+    var map = (typeof VAN_LOOKUP !== "undefined") ? VAN_LOOKUP : null;
+    return (map && map[digits]) ? map[digits] : null;
+  }
+  function lookupVanForReg(reg){
+    var map = (typeof VAN_LOOKUP !== "undefined") ? VAN_LOOKUP : null;
+    if(!map) return null;
+    var norm = normalizeReg(reg);
+    if(!norm) return null;
+    for(var code in map){
+      if(map[code] === norm) return code;
+    }
+    return null;
+  }
+
   // ---- technician name autocomplete ----
   (function populateTechNames(){
     var names = (typeof TECH_NAMES !== "undefined") ? TECH_NAMES : [];
@@ -385,17 +424,65 @@
     t[0].addEventListener("input", function(){ clearFieldError(t[1], t[2]); });
   });
 
+  var lastAutoReg = null;  // reg value most recently auto-filled from a van code lookup
+  var lastAutoVan = null;  // van code most recently auto-filled from a vehicle reg lookup
+
+  vanCodeEl.addEventListener("input", function(){
+    lastAutoVan = null;  // user is now editing the van code directly
+    vanCodeEl.value = vanCodeEl.value.replace(/\D/g,"").slice(0,3);
+    if(vanCodeEl.value.length === 3){
+      var reg = lookupRegForVan(vanCodeEl.value);
+      if(reg){
+        vehicleRegEl.value = reg;
+        lastAutoReg = reg;
+        clearFieldError(vehicleRegField, vehicleRegError);
+      }else{
+        lastAutoReg = null;
+      }
+    }else{
+      if(lastAutoReg && vehicleRegEl.value === lastAutoReg){
+        vehicleRegEl.value = "";
+      }
+      lastAutoReg = null;
+    }
+  });
+
+  vehicleRegEl.addEventListener("input", function(){
+    lastAutoReg = null;  // user is now editing the reg directly
+
+    // strip spaces and uppercase live, so "LK74 ZHU" reformats to "LK74ZHU" as you type
+    var caretPos = vehicleRegEl.selectionStart;
+    var removedBefore = (vehicleRegEl.value.slice(0, caretPos).match(/\s/g) || []).length;
+    vehicleRegEl.value = normalizeReg(vehicleRegEl.value);
+    var newCaret = caretPos - removedBefore;
+    vehicleRegEl.setSelectionRange(newCaret, newCaret);
+
+    if(vanCodeEl.value.trim() && vanCodeEl.value !== lastAutoVan) return;  // van code was typed manually — don't override it
+    var code = lookupVanForReg(vehicleRegEl.value);
+    if(code){
+      vanCodeEl.value = code;
+      lastAutoVan = code;
+      clearFieldError(vanCodeField, vanCodeError);
+    }else{
+      if(lastAutoVan && vanCodeEl.value === lastAutoVan){
+        vanCodeEl.value = "";
+      }
+      lastAutoVan = null;
+    }
+  });
+
   confirmBtn.onclick = function(){
     var tech = techNameEl.value.trim();
-    var van = vanCodeEl.value.trim();
+    var vanDigits = vanCodeEl.value.trim();
+    var van = "108" + vanDigits;
     var reg = vehicleRegEl.value.trim();
     var valid = true;
 
     if(!tech){ showFieldError(techNameField, techNameError, "Technician name is required."); valid = false; }
     else{ clearFieldError(techNameField, techNameError); }
 
-    if(!van){ showFieldError(vanCodeField, vanCodeError, "Van code is required."); valid = false; }
-    else if(van.indexOf("108") !== 0){ showFieldError(vanCodeField, vanCodeError, "Van code must start with 108."); valid = false; }
+    if(!vanDigits){ showFieldError(vanCodeField, vanCodeError, "Van code is required."); valid = false; }
+    else if(!/^\d{3}$/.test(vanDigits)){ showFieldError(vanCodeField, vanCodeError, "Van code must be 3 digits."); valid = false; }
     else{ clearFieldError(vanCodeField, vanCodeError); }
 
     if(!reg){ showFieldError(vehicleRegField, vehicleRegError, "Vehicle reg is required."); valid = false; }
@@ -407,7 +494,13 @@
     jobSummary.textContent = tech + " · " + van + " · " + reg + " · " + checkDateTimeValue;
     page1.hidden = true;
     page2.hidden = false;
+    page2.classList.add("pageEnterFrom");
     window.scrollTo(0, 0);
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        page2.classList.remove("pageEnterFrom");
+      });
+    });
   };
 
   editDetailsBtn.onclick = function(){
@@ -639,7 +732,7 @@
 
   exportBtn.onclick = function(){
     var tech = techNameEl.value.trim();
-    var van = vanCodeEl.value.trim();
+    var van = "108" + vanCodeEl.value.trim();
     var reg = vehicleRegEl.value.trim();
     var checkDt = checkDateTimeValue;
     var rows = [["Technician_Name","Van_Code","Vehicle_Reg","Check_DateTime","Entry_Type","Code","Product_Name","Quantity","First_Scanned","Last_Scanned"]];
