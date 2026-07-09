@@ -204,7 +204,7 @@
       <div class="fieldError" id="vanCodeError" hidden></div>
     </label>
     <label class="field" id="vehicleRegField">
-      <span>Vehicle Reg</span>
+      <span>Vehicle Registration</span>
       <input id="vehicleReg" type="text" autocomplete="off">
       <div class="fieldError" id="vehicleRegError" hidden></div>
     </label>
@@ -485,7 +485,7 @@
     else if(!/^\d{3}$/.test(vanDigits)){ showFieldError(vanCodeField, vanCodeError, "Van code must be 3 digits."); valid = false; }
     else{ clearFieldError(vanCodeField, vanCodeError); }
 
-    if(!reg){ showFieldError(vehicleRegField, vehicleRegError, "Vehicle reg is required."); valid = false; }
+    if(!reg){ showFieldError(vehicleRegField, vehicleRegError, "Vehicle registration is required."); valid = false; }
     else{ clearFieldError(vehicleRegField, vehicleRegError); }
 
     if(!valid) return;
