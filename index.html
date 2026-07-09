@@ -15,8 +15,8 @@
     --field-border:#2a3a52;
     --text:#f2f5f9;
     --text-soft:#8b9ab0;
-    --accent:#3d6bff;
-    --accent-2:#8b5cf6;
+    --accent:#1f78d1;
+    --accent-2:#f7a600;
     --ok:#34d399;
     --danger:#ff6b6b;
     --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
@@ -34,13 +34,14 @@
     padding:40px 20px;gap:36px;
   }
   .brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
-  .logoMark{
-    width:88px;height:88px;border-radius:24px;
-    background:linear-gradient(135deg,var(--accent),var(--accent-2));
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 10px 30px rgba(61,107,255,.4);
+  .logoCard{
+    background:#fff;border-radius:16px;padding:16px 22px;
+    box-shadow:0 10px 30px rgba(0,0,0,.3);
   }
-  .brand h1{font-size:36px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text)}
+  .logoMark{
+    width:min(360px,85vw);height:auto;display:block;
+  }
+  .brand h1{font-size:36px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent-2)}
 
   .formCard{width:100%;max-width:460px;display:flex;flex-direction:column;gap:18px}
   .formCard .formTitle{
@@ -154,20 +155,13 @@
 
 <div id="page1" class="page">
   <div class="brand">
-    <div class="logoMark">
-      <svg width="36" height="36" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="4" width="3" height="20" rx="1" fill="white"/>
-        <rect x="8" y="4" width="2" height="20" rx="1" fill="white"/>
-        <rect x="13" y="4" width="4" height="20" rx="1" fill="white"/>
-        <rect x="20" y="4" width="3" height="20" rx="1" fill="white"/>
-        <rect x="24" y="4" width="2" height="20" rx="1" fill="white"/>
-      </svg>
+    <div class="logoCard">
+      <img class="logoMark" src="KwikFit.svg.png" alt="Kwik Fit">
     </div>
     <h1>Stock Take</h1>
   </div>
 
   <div class="formCard">
-    <div class="formTitle">Technician Information</div>
     <label class="field" id="techNameField">
       <span>Technician Name</span>
       <input id="techName" type="text" autocomplete="off">
@@ -373,11 +367,13 @@
     jobSummary.textContent = tech + " · " + van + " · " + reg + " · " + checkDateTimeValue;
     page1.hidden = true;
     page2.hidden = false;
+    window.scrollTo(0, 0);
   };
 
   editDetailsBtn.onclick = function(){
     page2.hidden = true;
     page1.hidden = false;
+    window.scrollTo(0, 0);
   };
 
   function record(code, source){
