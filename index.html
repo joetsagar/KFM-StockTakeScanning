@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Stock Take</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="html5-qrcode.min.js"></script>
 <script src="ean-lookup.js"></script>
 <script src="tech-lookup.js"></script>
 <script src="van-lookup.js"></script>
@@ -29,13 +29,25 @@
     background:var(--bg);color:var(--text);min-height:100vh;
   }
 
-  /* ---- page 1: technician info ---- */
-  .page[hidden]{display:none}
-  #page2{ transition:transform .45s cubic-bezier(.22,.9,.32,1), opacity .45s cubic-bezier(.22,.9,.32,1); }
-  #page2.pageEnterFrom{ transform:translateY(-28px); opacity:0; }
+  /* ---- slider: page1 (technician info) <-> page2 (edit details) ---- */
+  .sliderViewport{width:100%;overflow:hidden;position:relative}
+  .sliderTrack{
+    display:flex;width:200%;
+    transition:transform .45s cubic-bezier(.22,.9,.32,1);
+  }
+  .sliderTrack.showPage2{transform:translateX(-50%)}
+  .page{width:50%;flex:0 0 50%;min-width:0}
+
+  .dots{
+    position:fixed;left:0;right:0;bottom:14px;display:flex;justify-content:center;gap:10px;
+    z-index:20;pointer-events:none;
+  }
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--field-border);transition:background .3s ease,transform .3s ease}
+  .dot.active{background:var(--accent-2);transform:scale(1.2)}
+
   #page1{
     min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:40px 20px;gap:22px;
+    padding:40px 20px 70px;gap:22px;
   }
   .brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
   .logoCard{
@@ -180,6 +192,9 @@
 </head>
 <body>
 
+<div class="sliderViewport">
+<div class="sliderTrack" id="sliderTrack">
+
 <div id="page1" class="page">
   <div class="brand">
     <div class="logoCard">
@@ -212,7 +227,7 @@
   </div>
 </div>
 
-<div id="page2" class="page" hidden>
+<div id="page2" class="page">
   <div class="topbar">
     <div>
       <div class="topbarTitle">Stock Take</div>
@@ -286,6 +301,14 @@
   </main>
 </div>
 
+</div>
+</div>
+
+<div class="dots" id="dots" aria-hidden="true">
+  <span class="dot active" data-page="0"></span>
+  <span class="dot" data-page="1"></span>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -299,8 +322,14 @@
   var scanPauseUntil = 0;
   var checkDateTimeValue = "";
 
-  var page1 = document.getElementById("page1");
-  var page2 = document.getElementById("page2");
+  var sliderTrack = document.getElementById("sliderTrack");
+  var dots = document.querySelectorAll("#dots .dot");
+
+  function goToPage(index){
+    sliderTrack.classList.toggle("showPage2", index === 1);
+    dots.forEach(function(d, i){ d.classList.toggle("active", i === index); });
+    window.scrollTo(0, 0);
+  }
   var techNameEl = document.getElementById("techName");
   var vanCodeEl = document.getElementById("vanCode");
   var vehicleRegEl = document.getElementById("vehicleReg");
@@ -492,21 +521,12 @@
 
     checkDateTimeValue = fmt(new Date());
     jobSummary.textContent = tech + " · " + van + " · " + reg + " · " + checkDateTimeValue;
-    page1.hidden = true;
-    page2.hidden = false;
-    page2.classList.add("pageEnterFrom");
-    window.scrollTo(0, 0);
-    requestAnimationFrame(function(){
-      requestAnimationFrame(function(){
-        page2.classList.remove("pageEnterFrom");
-      });
-    });
+    goToPage(1);
   };
 
   editDetailsBtn.onclick = function(){
-    page2.hidden = true;
-    page1.hidden = false;
-    window.scrollTo(0, 0);
+    stopCamera(true);
+    goToPage(0);
   };
 
   function record(code, source){
@@ -659,14 +679,23 @@
   // ---- camera ----
   document.getElementById("startBtn").onclick = function(){
     if(running) return;
+    if(typeof Html5Qrcode === "undefined"){
+      setStatus("Camera scanner failed to load. Check your connection and reload the page, or use manual entry below.", "err");
+      return;
+    }
     getAudioContext();
-    scanner = new Html5Qrcode("reader", {
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A
-      ]
-    });
+    try{
+      scanner = new Html5Qrcode("reader", {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A
+        ]
+      });
+    }catch(err){
+      setStatus("Could not initialise the camera scanner: " + err + ". Use manual entry below.", "err");
+      return;
+    }
     scanner.start(
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 280, height: 140 } },
@@ -691,15 +720,16 @@
     });
   };
 
-  document.getElementById("stopBtn").onclick = function(){
+  function stopCamera(silent){
     if(!scanner || !running) return;
     scanner.stop().then(function(){
       scanner.clear(); running = false;
       document.getElementById("startBtn").disabled = false;
       document.getElementById("stopBtn").disabled = true;
-      setStatus("Camera is off.");
+      if(!silent) setStatus("Camera is off.");
     });
-  };
+  }
+  document.getElementById("stopBtn").onclick = function(){ stopCamera(false); };
 
   // ---- manual ----
   function addManual(){
